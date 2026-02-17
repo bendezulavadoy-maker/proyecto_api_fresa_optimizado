@@ -4,6 +4,7 @@ FROM python:3.9-slim
 
 # Instalar dependencias del sistema necesarias para OpenCV
 RUN apt-get update && apt-get install -y \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
@@ -14,15 +15,16 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copiar y pip install
+# Copiar requirements y pip install
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar el resto del proyecto
+# Copiar todos los archivos del proyecto
 COPY . .
 
-# Exponer el puerto de Render
+# Puerto que Render necesita
 ENV PORT=10000
 
 # Comando para arrancar la API
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "10000"]
+
