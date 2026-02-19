@@ -3,12 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from ultralytics import YOLO
 import os
 import uuid
+import gc
 
 app = FastAPI()
 
-# ============================
-#  CORS (importante si usarás web)
-# ============================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,44 +15,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ============================
-#  Cargar modelo YOLO (una vez)
-# ============================
+# Cargar modelo con optimizaciones de memoria
 model = YOLO("best.pt")
+model.overrides['verbose'] = False  # Menos logs = menos memoria
 
-# Nombres de clases según tu YAML
 class_names = ['floración', 'fruto_verde', 'fruto_blanco', 'casi_madura', 'madura']
 
-
-# ============================
-#      ENDPOINT PREDICT
-# ============================
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
 
-    # Guardar archivo temporal con nombre único
     temp_name = f"temp_{uuid.uuid4()}.jpg"
-    with open(temp_name, "wb") as f:
-        f.write(await file.read())
+    
+    try:
+        with open(temp_name, "wb") as f:
+            f.write(await file.read())
 
-    # Hacer predicción
-    results = model(temp_name)[0]
+        # Inferencia con imagen reducida para ahorrar memoria
+        results = model(temp_name, imgsz=416, verbose=False)[0]
 
-    # Contar detecciones
-    counts = {name: 0 for name in class_names}
+        counts = {name: 0 for name in class_names}
+        for cls_id in results.boxes.cls:
+            cls_id = int(cls_id)
+            if cls_id < len(class_names):
+                counts[class_names[cls_id]] += 1
 
-    for cls_id in results.boxes.cls:
-        cls_id = int(cls_id)
-        if cls_id < len(class_names):
-            counts[class_names[cls_id]] += 1
+        # Liberar resultados de memoria
+        del results
+        gc.collect()
 
-    # Eliminar archivo temporal
-    if os.path.exists(temp_name):
-        os.remove(temp_name)
+    finally:
+        # Siempre eliminar el archivo temporal
+        if os.path.exists(temp_name):
+            os.remove(temp_name)
 
-    # ============================
-    #   LÓGICA DE ETAPA FENOLÓGICA
-    # ============================
     flores = counts['floración']
     verdes = counts['fruto_verde']
     blancos = counts['fruto_blanco']
@@ -81,12 +74,6 @@ async def predict(file: UploadFile = File(...)):
         "etapa_fenologica": etapa
     }
 
-
-# ============================
-#      ENDPOINT ROOT
-# ============================
 @app.get("/")
 def root():
     return {"message": "API YOLO de fresas funcionando correctamente"}
-
-
