@@ -16,7 +16,7 @@ app.add_middleware(
 )
 
 # Cargar modelo con optimizaciones de memoria
-model = YOLO("best.pt")
+model = YOLO("best.onnx")
 model.overrides['verbose'] = False  # Menos logs = menos memoria
 
 class_names = ['floración', 'fruto_verde', 'fruto_blanco', 'casi_madura', 'madura']
@@ -77,3 +77,6 @@ async def predict(file: UploadFile = File(...)):
 @app.get("/")
 def root():
     return {"message": "API YOLO de fresas funcionando correctamente"}
+@app.get("/health")
+def health():
+    return {"status": "ok"}
