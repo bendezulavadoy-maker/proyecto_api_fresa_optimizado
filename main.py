@@ -16,8 +16,9 @@ app.add_middleware(
 )
 
 # Cargar modelo con optimizaciones de memoria
-model = YOLO("best.onnx")
-model.overrides['verbose'] = False  # Menos logs = menos memoria
+model = YOLO("best.onnx", task='detect')
+model.overrides['verbose'] = False
+model.overrides['nms'] = True
 
 class_names = ['floración', 'fruto_verde', 'fruto_blanco', 'casi_madura', 'madura']
 
@@ -31,7 +32,7 @@ async def predict(file: UploadFile = File(...)):
             f.write(await file.read())
 
         # Inferencia con imagen reducida para ahorrar memoria
-        results = model(temp_name, imgsz=416, verbose=False)[0]
+        results = model(temp_name, imgsz=320, verbose=False, conf=0.25)[0]
 
         counts = {name: 0 for name in class_names}
         for cls_id in results.boxes.cls:
