@@ -4,4 +4,5 @@ python-multipart
 pillow
 ultralytics
 onnxruntime
+onnx
 opencv-python-headless
